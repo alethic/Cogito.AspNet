@@ -1,0 +1,56 @@
+<Project>
+
+    <PropertyGroup>
+        <EnableWebImport Condition="'$(EnableWebImport)' == ''">true</EnableWebImport>
+    </PropertyGroup>
+
+    <Target
+        Name="GetWebImportFiles"
+        DependsOnTargets="GatherAllFilesToPublish"
+        Returns="@(FilesForPackagingFromProject)">
+    </Target>
+
+    <Target
+        Name="PrepareWebImportProjectReferences"
+        AfterTargets="PrepareProjectReferences">
+        <ItemGroup>
+            <ProjectReferenceForWebImport Include="@(ProjectReferenceWithConfiguration)" Condition="'%(ProjectReferenceWithConfiguration.WebImportPath)' != ''">
+                <ProjectName>$([System.IO.Path]::GetFileNameWithoutExtension('%(Identity)'))</ProjectName>
+                <WebImportPath>$([MSBuild]::EnsureTrailingSlash(%(ProjectReferenceWithConfiguration.WebImportPath)))</WebImportPath>
+            </ProjectReferenceForWebImport>
+        </ItemGroup>
+    </Target>
+
+    <Target
+        Name="ImportWebProjects"
+        BeforeTargets="GetCopyToOutputDirectoryItems"
+        DependsOnTargets="PrepareWebImportProjectReferences"
+        Inputs="@(ProjectReferenceForWebImport)"
+        Outputs="%(Identity).dummy"
+        Condition="'$(EnableWebImport)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+        <Message
+            Text="Importing Web Project %(ProjectReferenceForWebImport.ProjectName) to %(ProjectReferenceForWebImport.WebImportPath)" />
+        <MSBuild
+            Projects="%(ProjectReferenceForWebImport.Identity)"
+            Targets="GetWebImportFiles"
+            BuildInParallel="$(BuildInParallel)"
+            Properties="%(ProjectReferenceForWebImport.SetConfiguration);%(ProjectReferenceForWebImport.SetPlatform);%(ProjectReferenceForWebImport.SetTargetFramework)"
+            ContinueOnError="$(ContinueOnError)"
+            RemoveProperties="%(ProjectReferenceForWebImport.GlobalPropertiesToRemove);PackageLocation"
+            RebaseOutputs="true">
+            <Output TaskParameter="TargetOutputs" ItemName="WebImportFiles" />
+        </MSBuild>
+        <ItemGroup>
+            <WebImportFiles>
+                <WebImportPath>%(ProjectReferenceForWebImport.WebImportPath)</WebImportPath>
+            </WebImportFiles>
+        </ItemGroup>
+        <ItemGroup>
+            <ContentWithTargetPath Include="@(WebImportFiles)">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <TargetPath>%(WebImportFiles.WebImportPath)%(WebImportFiles.DestinationRelativePath)</TargetPath>
+            </ContentWithTargetPath>
+        </ItemGroup>
+    </Target>
+
+</Project>
