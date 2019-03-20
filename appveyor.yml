@@ -17,8 +17,8 @@ before_build:
 
 build:
   verbosity: minimal
-  project: Cogito.COM.MSBuild.sln
+  project: Cogito.AspNet.sln
 
 artifacts:
   - path: pkg\*.nupkg
-    name: Cogito.COM.MSBuild
+    name: Cogito.AspNet
