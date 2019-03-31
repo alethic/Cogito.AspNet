@@ -2,6 +2,7 @@
 
     <PropertyGroup>
         <EnableWebImport Condition="'$(EnableWebImport)' == ''">true</EnableWebImport>
+        <IsWebApplicationProject Condition="$(ProjectTypeGuids.Contains('{349c5851-65df-11da-9384-00065b846f21}'))">true</IsWebApplicationProject>
     </PropertyGroup>
 
     <Target
@@ -57,7 +58,7 @@
         Name="ForceGenerationOfBindingRedirects"
         AfterTargets="ResolveAssemblyReferences"
         BeforeTargets="GenerateBindingRedirects"
-        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(IsWebApplicationProject)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
         <PropertyGroup>
             <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
         </PropertyGroup>
@@ -66,7 +67,7 @@
     <Target
         Name="RemoveAssemblyBindingRedirectsFromWebConfig"
         BeforeTargets="GenerateBindingRedirects"
-        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(IsWebApplicationProject)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
         <RemoveAssemblyBindingRedirects
             File="$(MSBuildProjectDirectory)\Web.config" />
     </Target>
@@ -74,7 +75,7 @@
     <Target
         Name="CopyAssemblyBindingRedirectsToWebConfig"
         AfterTargets="GenerateBindingRedirects"
-        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(IsWebApplicationProject)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
         <CopyAssemblyBindingRedirects
             Condition="Exists('$(OutputPath)\$(AssemblyName).dll.config')"
             SourceFile="$(OutputPath)\$(AssemblyName).dll.config"
