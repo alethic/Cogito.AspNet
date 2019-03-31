@@ -1,28 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net45</TargetFramework>
-        <Authors>Jerome Haltom</Authors>
-        <Description>MSBuild extensions for importing referenced Web Application Projects and auto-generation of binding redirects.</Description>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
-        <PackageProjectUrl>https://github.com/wasabii/Cogito.AspNet</PackageProjectUrl>
-        <DevelopmentDependency>true</DevelopmentDependency>
-        <PackageIconUrl>https://cloverluxussc.blob.core.windows.net/public/cogito-nuget-icon.png</PackageIconUrl>
-        <RepositoryUrl>https://github.com/wasabii/Cogito.AspNet.git</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net45</TargetFramework>
+    <Authors>Jerome Haltom</Authors>
+    <Description>MSBuild extensions for importing referenced Web Application Projects and auto-generation of binding redirects.</Description>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
+    <PackageProjectUrl>https://github.com/wasabii/Cogito.AspNet</PackageProjectUrl>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageIconUrl>https://cloverluxussc.blob.core.windows.net/public/cogito-nuget-icon.png</PackageIconUrl>
+    <RepositoryUrl>https://github.com/wasabii/Cogito.AspNet.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <Reference Include="Microsoft.Build.Framework" />
-        <Reference Include="Microsoft.Build.Utilities.v4.0" />
-    </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Build.Framework" />
+    <Reference Include="Microsoft.Build.Utilities.v4.0" />
+  </ItemGroup>
 
+  <ItemGroup>
+    <None Include="build\**\*">
+      <Pack>true</Pack>
+      <PackagePath>build</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <Target Name="CollectRuntimeOutputs" BeforeTargets="_GetPackageFiles">
     <ItemGroup>
-        <None Include="build\**\*">
-            <Pack>true</Pack>
-            <PackagePath>build</PackagePath>
-        </None>
+      <Content Include="$(OutputPath)**\*" Exclude="$(OutputPath)**\Microsoft.Build.Framework.dll;$(OutputPath)**\Microsoft.Build.Tasks.Core.dll;$(OutputPath)**\Microsoft.Build.Utilities.Core.dll;">
+        <Pack>true</Pack>
+        <PackagePath>build\</PackagePath>
+      </Content>
     </ItemGroup>
+  </Target>
 
 </Project>
