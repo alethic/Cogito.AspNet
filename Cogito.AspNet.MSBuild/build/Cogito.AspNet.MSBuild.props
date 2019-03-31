@@ -10,4 +10,8 @@
         TaskName="CopyAssemblyBindingRedirects"
         AssemblyFile="$(CogitoAspNetMsBuildTaskAssembly)" />
 
+    <UsingTask
+        TaskName="RemoveAssemblyBindingRedirects"
+        AssemblyFile="$(CogitoAspNetMsBuildTaskAssembly)" />
+
 </Project>

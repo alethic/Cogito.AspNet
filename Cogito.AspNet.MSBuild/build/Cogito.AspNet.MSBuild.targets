@@ -64,6 +64,14 @@
     </Target>
 
     <Target
+        Name="RemoveAssemblyBindingRedirectsFromWebConfig"
+        BeforeTargets="GenerateBindingRedirects"
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        <RemoveAssemblyBindingRedirects
+            File="$(MSBuildProjectDirectory)\Web.config" />
+    </Target>
+
+    <Target
         Name="CopyAssemblyBindingRedirectsToWebConfig"
         AfterTargets="GenerateBindingRedirects"
         Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
