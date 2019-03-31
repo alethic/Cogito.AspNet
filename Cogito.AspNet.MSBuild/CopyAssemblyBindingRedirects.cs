@@ -12,6 +12,8 @@ namespace Cogito.AspNet.MSBuild
     public class CopyAssemblyBindingRedirects : Microsoft.Build.Utilities.Task
     {
 
+        static readonly XNamespace asmv1 = "urn:schemas-microsoft-com:asm.v1";
+
         /// <summary>
         /// File from which to obtain binding redirects.
         /// </summary>
@@ -22,7 +24,7 @@ namespace Cogito.AspNet.MSBuild
         /// File to copy binding redirects.
         /// </summary>
         [Required]
-        public ITaskItem TargetFile{ get; set; }
+        public ITaskItem TargetFile { get; set; }
 
         public override bool Execute()
         {
@@ -30,14 +32,14 @@ namespace Cogito.AspNet.MSBuild
             var target = XDocument.Load(TargetFile.ItemSpec);
 
             // load new assembly bindings
-            var items = source.Root.Element("runtime")?.Elements("assemblyBinding") ?? Enumerable.Empty<XElement>();
+            var items = source.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding") ?? Enumerable.Empty<XElement>();
 
             // ensure output runtime element exists
             if (target.Root.Element("runtime") == null)
                 target.Root.Add(new XElement("runtime"));
 
             // remove existing binding elements
-            target.Root.Element("runtime").Elements("assemblyBinding").Remove();
+            target.Root.Element("runtime").Elements(asmv1 + "assemblyBinding").Remove();
             target.Root.Element("runtime").Add(items);
 
             // save new file
