@@ -53,4 +53,24 @@
         </ItemGroup>
     </Target>
 
+    <Target
+        Name="ForceGenerationOfBindingRedirects"
+        AfterTargets="ResolveAssemblyReferences"
+        BeforeTargets="GenerateBindingRedirects"
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        <PropertyGroup>
+            <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+        </PropertyGroup>
+    </Target>
+
+    <Target
+        Name="CopyAssemblyBindingRedirectsToWebConfig"
+        AfterTargets="GenerateBindingRedirects"
+        Condition="'$(AutoGenerateBindingRedirects)' == 'true' And '$(CopyGeneratedBindingRedirectsToWebConfig)' == 'true' And Exists('$(MSBuildProjectDirectory)\Web.config')">
+        <CopyAssemblyBindingRedirects
+            Condition="Exists('$(OutputPath)\$(AssemblyName).dll.config')"
+            SourceFile="$(OutputPath)\$(AssemblyName).dll.config"
+            TargetFile="$(MSBuildProjectDirectory)\Web.config" />
+    </Target>
+
 </Project>

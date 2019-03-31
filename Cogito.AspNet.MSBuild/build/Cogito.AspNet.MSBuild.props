@@ -1,3 +1,13 @@
 <Project>
-    
+
+    <PropertyGroup>
+        <CogitoAspNetMsBuildTaskAssembly Condition="'$(CogitoAspNetMsBuildTaskAssembly)' == ''">$(MSBuildThisFileDirectory)Cogito.AspNet.MSBuild.dll</CogitoAspNetMsBuildTaskAssembly>
+        <CogitoAspNetMsBuildTaskAssembly>$([System.IO.Path]::GetFullPath($(CogitoAspNetMsBuildTaskAssembly)))</CogitoAspNetMsBuildTaskAssembly>
+        <CopyGeneratedBindingRedirectsToWebConfig Condition="'$(CopyGeneratedBindingRedirectsToWebConfig)' == ''">true</CopyGeneratedBindingRedirectsToWebConfig>
+    </PropertyGroup>
+
+    <UsingTask
+        TaskName="CopyAssemblyBindingRedirects"
+        AssemblyFile="$(CogitoAspNetMsBuildTaskAssembly)" />
+
 </Project>
