@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Xml.Linq;
 
 using Microsoft.Build.Framework;
@@ -33,6 +34,33 @@ namespace Cogito.AspNet.MSBuild
 
             // load new assembly bindings
             var items = source.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding") ?? Enumerable.Empty<XElement>();
+            items = items.OrderBy(i => (string)i.Elements(asmv1 + "dependentAssembly").Elements(asmv1 + "assemblyIdentity").Attributes("name").FirstOrDefault() ?? "");
+
+            // reorder attributes
+            foreach (var element in items.DescendantsAndSelf())
+            {
+                Tuple<int, string> Comparable(XAttribute s)
+                {
+                    switch (s.Name.LocalName)
+                    {
+                        case "name":
+                            return Tuple.Create(0, s.Name.LocalName);
+                        case "publicKeyToken":
+                            return Tuple.Create(1, s.Name.LocalName);
+                        case "culture":
+                            return Tuple.Create(2, s.Name.LocalName);
+                        case "oldVersion":
+                            return Tuple.Create(0, s.Name.LocalName);
+                        case "newVersion":
+                            return Tuple.Create(1, s.Name.LocalName);
+                        default:
+                            return Tuple.Create(int.MaxValue, s.Name.LocalName);
+                    }
+                }
+
+                var attr = element.Attributes().OrderBy(i => Comparable(i)).ToList();
+                element.ReplaceAttributes(attr);
+            }
 
             // ensure output runtime element exists
             if (target.Root.Element("runtime") == null)
