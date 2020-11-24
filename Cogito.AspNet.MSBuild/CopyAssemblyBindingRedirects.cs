@@ -39,24 +39,15 @@ namespace Cogito.AspNet.MSBuild
             // reorder attributes
             foreach (var element in items.DescendantsAndSelf())
             {
-                Tuple<int, string> Comparable(XAttribute s)
+                static Tuple<int, string> Comparable(XAttribute s) => s.Name.LocalName switch
                 {
-                    switch (s.Name.LocalName)
-                    {
-                        case "name":
-                            return Tuple.Create(0, s.Name.LocalName);
-                        case "publicKeyToken":
-                            return Tuple.Create(1, s.Name.LocalName);
-                        case "culture":
-                            return Tuple.Create(2, s.Name.LocalName);
-                        case "oldVersion":
-                            return Tuple.Create(0, s.Name.LocalName);
-                        case "newVersion":
-                            return Tuple.Create(1, s.Name.LocalName);
-                        default:
-                            return Tuple.Create(int.MaxValue, s.Name.LocalName);
-                    }
-                }
+                    "name" => Tuple.Create(0, s.Name.LocalName),
+                    "publicKeyToken" => Tuple.Create(1, s.Name.LocalName),
+                    "culture" => Tuple.Create(2, s.Name.LocalName),
+                    "oldVersion" => Tuple.Create(0, s.Name.LocalName),
+                    "newVersion" => Tuple.Create(1, s.Name.LocalName),
+                    _ => Tuple.Create(int.MaxValue, s.Name.LocalName),
+                };
 
                 var attr = element.Attributes().OrderBy(i => Comparable(i)).ToList();
                 element.ReplaceAttributes(attr);
