@@ -6,11 +6,7 @@
     <Description>MSBuild extensions for importing referenced Web Application Projects and auto-generation of binding redirects.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
-    <PackageProjectUrl>https://github.com/wasabii/Cogito.AspNet</PackageProjectUrl>
     <DevelopmentDependency>true</DevelopmentDependency>
-    <PackageIconUrl>https://cloverluxussc.blob.core.windows.net/public/cogito-nuget-icon.png</PackageIconUrl>
-    <RepositoryUrl>https://github.com/wasabii/Cogito.AspNet.git</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <IncludeBuildOutput>false</IncludeBuildOutput>
   </PropertyGroup>
 
