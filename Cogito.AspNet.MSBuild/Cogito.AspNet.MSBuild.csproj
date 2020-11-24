@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net45</TargetFramework>
     <Authors>Jerome Haltom</Authors>
-    <Description>MSBuild extensions for importing referenced Web Application Projects and auto-generation of binding redirects.</Description>
+    <Description>MSBuild extensions for Web Application Projects.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
     <DevelopmentDependency>true</DevelopmentDependency>
