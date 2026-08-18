@@ -1,13 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 using Buildalyzer;
 using Buildalyzer.Environment;
 
 using FluentAssertions;
 
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Cogito.AspNet.MSBuild.Tests
@@ -18,40 +22,87 @@ namespace Cogito.AspNet.MSBuild.Tests
     {
 
         /// <summary>
-        /// Version of the package produced by the build and staged into the output.
+        /// Forwards MSBuild events to the test context.
         /// </summary>
-        static string PackageVersion;
+        class TargetLogger : Logger
+        {
 
-        /// <summary>
-        /// Root of the fixture project directory in the test output.
-        /// </summary>
-        static string TestRoot;
+            readonly TestContext context;
 
-        /// <summary>
-        /// Local feed containing the package under test.
-        /// </summary>
-        static string NuGetFeed;
+            /// <summary>
+            /// Initializes a new instance.
+            /// </summary>
+            /// <param name="context"></param>
+            /// <exception cref="ArgumentNullException"></exception>
+            public TargetLogger(TestContext context)
+            {
+                this.context = context ?? throw new ArgumentNullException(nameof(context));
+            }
 
-        /// <summary>
-        /// Temporary directory holding the restored packages.
-        /// </summary>
-        static string TempRoot;
+            public override void Initialize(IEventSource eventSource)
+            {
+                eventSource.AnyEventRaised += OnAnyEventRaised;
+            }
+
+            void OnAnyEventRaised(object sender, BuildEventArgs args)
+            {
+                context.WriteLine(args.Message);
+            }
+
+        }
+
+        public static Dictionary<string, string> Properties { get; set; }
+
+        public static string TestRoot { get; set; }
+
+        public static string TempRoot { get; set; }
+
+        public static string WorkRoot { get; set; }
+
+        public static string NuGetPackageRoot { get; set; }
 
         [ClassInitialize]
         public static void ClassInitialize(TestContext context)
         {
             var location = Path.GetDirectoryName(typeof(ProjectTests).Assembly.Location);
 
-            var properties = File.ReadAllLines(Path.Combine(location, "Cogito.AspNet.MSBuild.Tests.properties"))
-                .Select(i => i.Split(new[] { '=' }, 2))
-                .ToDictionary(i => i[0], i => i[1]);
-            PackageVersion = properties["PackageVersion"];
+            // properties to load into test build
+            Properties = File.ReadAllLines(Path.Combine(location, "Cogito.AspNet.MSBuild.Tests.properties")).Select(i => i.Split(new[] { '=' }, 2)).ToDictionary(i => i[0], i => i[1]);
 
+            // root of the project collection itself
             TestRoot = Path.Combine(location, "Project");
-            NuGetFeed = Path.Combine(location, "nuget");
 
+            // temporary directory
             TempRoot = Path.Combine(Path.GetTempPath(), "Cogito.AspNet.MSBuild.Tests", Guid.NewGuid().ToString());
+            if (Directory.Exists(TempRoot))
+                Directory.Delete(TempRoot, true);
             Directory.CreateDirectory(TempRoot);
+
+            // work directory
+            WorkRoot = Path.Combine(context.TestRunResultsDirectory, "Cogito.AspNet.MSBuild.Tests", "ProjectTests");
+            if (Directory.Exists(WorkRoot))
+                Directory.Delete(WorkRoot, true);
+            Directory.CreateDirectory(WorkRoot);
+
+            // other required sub directories
+            NuGetPackageRoot = Path.Combine(TempRoot, "nuget", "packages");
+
+            // nuget.config file that defines package sources
+            new XDocument(
+                new XElement("configuration",
+                    new XElement("config",
+                        new XElement("add",
+                            new XAttribute("key", "globalPackagesFolder"),
+                            new XAttribute("value", NuGetPackageRoot))),
+                    new XElement("packageSources",
+                        new XElement("clear"),
+                        new XElement("add",
+                            new XAttribute("key", "nuget.org"),
+                            new XAttribute("value", "https://api.nuget.org/v3/index.json")),
+                        new XElement("add",
+                            new XAttribute("key", "dev"),
+                            new XAttribute("value", Path.Combine(location, "nuget"))))))
+                .Save(Path.Combine(TestRoot, "nuget.config"));
         }
 
         [ClassCleanup]
@@ -68,6 +119,8 @@ namespace Cogito.AspNet.MSBuild.Tests
             }
         }
 
+        public TestContext TestContext { get; set; }
+
         [TestMethod]
         public void CanBuildTestProject()
         {
@@ -76,33 +129,45 @@ namespace Cogito.AspNet.MSBuild.Tests
 
             var manager = new AnalyzerManager();
             var analyzer = manager.GetProject(Path.Combine(TestRoot, "Sample.Host", "Sample.Host.csproj"));
+            analyzer.AddBuildLogger(new TargetLogger(TestContext));
+            analyzer.AddBinaryLogger(Path.Combine(WorkRoot, "msbuild.binlog"));
+            analyzer.SetGlobalProperty("ImportDirectoryBuildProps", "false");
+            analyzer.SetGlobalProperty("ImportDirectoryBuildTargets", "false");
+            analyzer.SetGlobalProperty("PackageVersion", Properties["PackageVersion"]);
+            analyzer.SetGlobalProperty("RestorePackagesPath", NuGetPackageRoot + Path.DirectorySeparatorChar);
             analyzer.SetGlobalProperty("Configuration", "Release");
-            analyzer.SetGlobalProperty("PackageVersion", PackageVersion);
-            analyzer.SetGlobalProperty("RestorePackagesPath", Path.Combine(TempRoot, "packages"));
-            analyzer.SetGlobalProperty("RestoreAdditionalProjectSources", NuGetFeed);
-            analyzer.AddBinaryLogger(Path.Combine(TempRoot, "msbuild.binlog"));
 
             var options = new EnvironmentOptions();
+            options.WorkingDirectory = TestRoot;
             options.Preference = EnvironmentPreference.Framework;
             options.DesignTime = false;
             options.TargetsToBuild.Clear();
             options.TargetsToBuild.Add("Clean");
             options.TargetsToBuild.Add("Restore");
             options.TargetsToBuild.Add("Build");
+            options.TargetsToBuild.Add("Publish");
+            options.Arguments.Add("/v:d");
 
             var results = analyzer.Build(options);
+            TestContext.AddResultFile(Path.Combine(WorkRoot, "msbuild.binlog"));
             results.OverallSuccess.Should().BeTrue();
 
-            var output = Path.Combine(TestRoot, "Sample.Host", "bin", "Release");
+            var binDir = Path.Combine(TestRoot, "Sample.Host", "bin", "Release");
 
-            // FileSystem method: the published site imported as a directory tree
-            File.Exists(Path.Combine(output, "web", "Web.config")).Should().BeTrue();
-            File.Exists(Path.Combine(output, "web", "Default.aspx")).Should().BeTrue();
-            File.Exists(Path.Combine(output, "web", "bin", "Sample.Web.dll")).Should().BeTrue();
+            // check in build output and publish output
+            foreach (var i in new[] { "", "publish" })
+            {
+                var outDir = Path.Combine(binDir, i);
 
-            // Package method: the deployment package and its sidecar files
-            File.Exists(Path.Combine(output, "zip", "Sample.Web.zip")).Should().BeTrue();
-            File.Exists(Path.Combine(output, "zip", "Sample.Web.SetParameters.xml")).Should().BeTrue();
+                // FileSystem method: the published site imported as a directory tree
+                File.Exists(Path.Combine(outDir, "web", "Web.config")).Should().BeTrue();
+                File.Exists(Path.Combine(outDir, "web", "Default.aspx")).Should().BeTrue();
+                File.Exists(Path.Combine(outDir, "web", "bin", "Sample.Web.dll")).Should().BeTrue();
+
+                // Package method: the deployment package and its sidecar files
+                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.zip")).Should().BeTrue();
+                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.SetParameters.xml")).Should().BeTrue();
+            }
         }
 
     }
