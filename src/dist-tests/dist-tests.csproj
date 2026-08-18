@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.Build.NoTargets">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <TestTargetFramework Include="net48" />
+        <TestTargetFramework Include="net6.0" />
+    </ItemGroup>
+
+    <!-- Publishes the test suite, one directory per target framework. -->
+    <Target Name="CollectTests" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' " Inputs="@(TestTargetFramework)" Outputs="%(Identity).null">
+        <PropertyGroup>
+            <_TestTargetFramework>%(TestTargetFramework.Identity)</_TestTargetFramework>
+            <_TestPublishDir>$([MSBuild]::EnsureTrailingSlash('$([System.IO.Path]::GetFullPath('$(PublishDir)'))'))Cogito.AspNet.MSBuild.Tasks.Test\$(_TestTargetFramework)\</_TestPublishDir>
+        </PropertyGroup>
+        <MSBuild
+            Projects="..\Cogito.AspNet.MSBuild.Tasks.Test\Cogito.AspNet.MSBuild.Tasks.Test.csproj"
+            Targets="Publish"
+            BuildInParallel="$(BuildInParallel)"
+            Properties="TargetFramework=$(_TestTargetFramework);Configuration=$(Configuration);PublishDir=$(_TestPublishDir)" />
+    </Target>
+
+</Project>

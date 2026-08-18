@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.Build.NoTargets">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>MSBuild extensions for Web Application Projects.</Description>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <DevelopmentDependency>true</DevelopmentDependency>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="." />
+        <None Include="..\..\icon.png" Pack="true" PackagePath="." />
+        <None Include="build\**\*" Pack="true" PackagePath="build\%(RecursiveDir)%(Filename)%(Extension)" />
+        <None Include="buildMultiTargeting\**\*" Pack="true" PackagePath="buildMultiTargeting\%(RecursiveDir)%(Filename)%(Extension)" />
+        <None Include="targets\**\*" Pack="true" PackagePath="targets\%(RecursiveDir)%(Filename)%(Extension)" />
+        <None Include="lib\**\*" Pack="true" PackagePath="lib\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Cogito.AspNet.MSBuild.Tasks\Cogito.AspNet.MSBuild.Tasks.csproj">
+            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+            <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+        </ProjectReference>
+    </ItemGroup>
+
+    <!-- Publishes the task assembly (with its dependencies) into the package under
+         tasks\netstandard2.0. -->
+    <Target Name="PublishTasks" AfterTargets="Build" BeforeTargets="_GetPackageFiles">
+        <PropertyGroup>
+            <_TasksPublishDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)tasks\netstandard2.0'))\</_TasksPublishDir>
+        </PropertyGroup>
+        <MSBuild
+            Projects="..\Cogito.AspNet.MSBuild.Tasks\Cogito.AspNet.MSBuild.Tasks.csproj"
+            Targets="Publish"
+            Properties="TargetFramework=netstandard2.0;Configuration=$(Configuration);PublishDir=$(_TasksPublishDir)" />
+        <ItemGroup>
+            <_TasksPublishFile Include="$(_TasksPublishDir)**\*" />
+            <None Include="@(_TasksPublishFile)" Pack="true" PackagePath="tasks\netstandard2.0\%(RecursiveDir)%(Filename)%(Extension)" />
+        </ItemGroup>
+    </Target>
+
+</Project>

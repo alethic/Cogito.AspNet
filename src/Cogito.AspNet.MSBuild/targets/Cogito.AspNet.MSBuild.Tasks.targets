@@ -1,0 +1,15 @@
+<Project>
+    <PropertyGroup>
+        <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <CogitoAspNetMSBuildTaskFolder>netstandard2.0</CogitoAspNetMSBuildTaskFolder>
+        <CogitoAspNetMSBuildTaskFactory>TaskHostFactory</CogitoAspNetMSBuildTaskFactory>
+        <CogitoAspNetMSBuildTaskAssembly>$(MSBuildThisFileDirectory)..\tasks\$(CogitoAspNetMSBuildTaskFolder)\Cogito.AspNet.MSBuild.Tasks.dll</CogitoAspNetMSBuildTaskAssembly>
+    </PropertyGroup>
+
+    <UsingTask TaskName="CopyAssemblyBindingRedirects" AssemblyFile="$(CogitoAspNetMSBuildTaskAssembly)" TaskFactory="$(CogitoAspNetMSBuildTaskFactory)" Condition="Exists('$(CogitoAspNetMSBuildTaskAssembly)')" />
+    <UsingTask TaskName="RemoveAssemblyBindingRedirects" AssemblyFile="$(CogitoAspNetMSBuildTaskAssembly)" TaskFactory="$(CogitoAspNetMSBuildTaskFactory)" Condition="Exists('$(CogitoAspNetMSBuildTaskAssembly)')" />
+
+</Project>
