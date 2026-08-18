@@ -1,0 +1,147 @@
+<Project>
+    <PropertyGroup>
+        <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    </PropertyGroup>
+
+    <!--
+
+        WebProjectReference
+
+        References to Web Application Projects whose publish output is imported into the
+        output of the containing project. Distinct from ProjectReference: the referenced
+        project's assembly is not referenced; only its published content is consumed.
+
+            <ItemGroup>
+                <WebProjectReference Include="..\My.Web\My.Web.csproj">
+                    <WebTargetPath>My.Web\</WebTargetPath>
+                    <WebPublishMethod>FileSystem</WebPublishMethod>
+                    <WebProperties>PrecompileBeforePublish=true</WebProperties>
+                </WebProjectReference>
+            </ItemGroup>
+
+        The referenced project is published through the Web Publishing Pipeline (its
+        WebPublish target) into a staging directory, and the staged output is imported.
+
+        WebTargetPath: relative directory under the containing project's output where the
+        imported output is placed. Defaults to the referenced project's name.
+
+        WebPublishMethod: the Web Publishing Pipeline publish method to run.
+            FileSystem (default): the published site is imported as a directory tree.
+            Package: the deployment package (PackageAsSingleFile) and its sidecar files
+                are imported.
+
+        WebProperties: additional semicolon-separated MSBuild properties passed to the
+        referenced project's publish.
+
+    -->
+
+    <PropertyGroup>
+        <AssignWebProjectConfigurationDependsOn>
+            $(AssignWebProjectConfigurationDependsOn);
+        </AssignWebProjectConfigurationDependsOn>
+    </PropertyGroup>
+
+    <Target Name="AssignWebProjectConfiguration" DependsOnTargets="$(AssignWebProjectConfigurationDependsOn)" Condition=" '$(DesignTimeBuild)' != 'true' And '@(WebProjectReference)' != '' ">
+        <PropertyGroup>
+            <OnlyReferenceAndBuildProjectsEnabledInSolutionConfiguration Condition="'$(OnlyReferenceAndBuildProjectsEnabledInSolutionConfiguration)' == ''">true</OnlyReferenceAndBuildProjectsEnabledInSolutionConfiguration>
+            <ShouldUnsetParentConfigurationAndPlatform Condition="'$(ShouldUnsetParentConfigurationAndPlatform)' == '' and ('$(BuildingInsideVisualStudio)' == 'true' or '$(BuildingSolutionFile)' == 'true')">true</ShouldUnsetParentConfigurationAndPlatform>
+            <ShouldUnsetParentConfigurationAndPlatform Condition="'$(ShouldUnsetParentConfigurationAndPlatform)' == ''">false</ShouldUnsetParentConfigurationAndPlatform>
+        </PropertyGroup>
+        <AssignProjectConfiguration ProjectReferences="@(WebProjectReference)" CurrentProject="$(MSBuildProjectFullPath)" CurrentProjectConfiguration="$(Configuration)" CurrentProjectPlatform="$(Platform)" DefaultToVcxPlatformMapping="$(DefaultToVcxPlatformMapping)" VcxToDefaultPlatformMapping="$(VcxToDefaultPlatformMapping)" OutputType="$(OutputType)" ResolveConfigurationPlatformUsingMappings="false" SolutionConfigurationContents="$(CurrentSolutionConfigurationContents)" AddSyntheticProjectReferencesForSolutionDependencies="false" OnlyReferenceAndBuildProjectsEnabledInSolutionConfiguration="$(OnlyReferenceAndBuildProjectsEnabledInSolutionConfiguration)" ShouldUnsetParentConfigurationAndPlatform="$(ShouldUnsetParentConfigurationAndPlatform)">
+            <Output TaskParameter="AssignedProjects" ItemName="_WebProjectReferenceWithConfiguration"/>
+            <Output TaskParameter="UnassignedProjects" ItemName="_WebProjectReferenceWithConfiguration"/>
+        </AssignProjectConfiguration>
+    </Target>
+
+    <Target Name="GetWebProjectReferences" DependsOnTargets="AssignWebProjectConfiguration" Condition=" '$(DesignTimeBuild)' != 'true' And '@(_WebProjectReferenceWithConfiguration)' != '' ">
+        <ItemGroup>
+            <_WebProjectReference Remove="@(_WebProjectReference)" />
+            <_WebProjectReference Include="@(_WebProjectReferenceWithConfiguration)">
+                <WebProjectName>$([System.IO.Path]::GetFileNameWithoutExtension('%(Identity)'))</WebProjectName>
+            </_WebProjectReference>
+        </ItemGroup>
+        <ItemGroup>
+            <_WebProjectReference Update="@(_WebProjectReference)">
+                <WebTargetPath Condition=" '%(_WebProjectReference.WebTargetPath)' == '' ">%(_WebProjectReference.WebProjectName)</WebTargetPath>
+            </_WebProjectReference>
+            <_WebProjectReference Update="@(_WebProjectReference)">
+                <WebTargetPath>$([MSBuild]::EnsureTrailingSlash('%(_WebProjectReference.WebTargetPath)'))</WebTargetPath>
+            </_WebProjectReference>
+        </ItemGroup>
+    </Target>
+
+    <PropertyGroup>
+        <BuildWebProjectReferencesDependsOn>
+            $(BuildWebProjectReferencesDependsOn);
+            GetWebProjectReferences;
+        </BuildWebProjectReferencesDependsOn>
+    </PropertyGroup>
+
+    <!-- Batches per referenced project so each import lands under its own WebTargetPath. -->
+    <Target
+        Name="BuildWebProjectReferences"
+        DependsOnTargets="$(BuildWebProjectReferencesDependsOn)"
+        Inputs="@(_WebProjectReference)"
+        Outputs="%(Identity)\%(WebTargetPath).null"
+        Condition=" '$(DesignTimeBuild)' != 'true' And '@(_WebProjectReference)' != '' ">
+        <PropertyGroup>
+            <_WebImportTargetPath>%(_WebProjectReference.WebTargetPath)</_WebImportTargetPath>
+            <_WebImportMethod>%(_WebProjectReference.WebPublishMethod)</_WebImportMethod>
+            <_WebImportMethod Condition=" '$(_WebImportMethod)' == '' ">FileSystem</_WebImportMethod>
+            <_WebImportProperties>%(_WebProjectReference.WebProperties)</_WebImportProperties>
+            <_WebImportStageDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)webpublish\%(_WebProjectReference.WebProjectName)\$(_WebImportMethod)'))\</_WebImportStageDir>
+        </PropertyGroup>
+        <Error
+            Condition=" '$(_WebImportMethod)' != 'FileSystem' And '$(_WebImportMethod)' != 'Package' "
+            Text="Unknown WebPublishMethod '$(_WebImportMethod)' on WebProjectReference '%(_WebProjectReference.Identity)'. Supported values: FileSystem, Package." />
+        <Message Importance="Normal" Text="Importing web project %(_WebProjectReference.WebProjectName) ($(_WebImportMethod)) to $(_WebImportTargetPath)" />
+
+        <!-- Publish through the Web Publishing Pipeline into the staging directory. The
+             method decides which of the staging properties applies. -->
+        <RemoveDir Directories="$(_WebImportStageDir)" />
+        <MSBuild
+            Projects="@(_WebProjectReference)"
+            Targets="WebPublish"
+            BuildInParallel="$(BuildInParallel)"
+            Properties="%(_WebProjectReference.SetConfiguration);%(_WebProjectReference.SetPlatform);%(_WebProjectReference.SetTargetFramework);WebPublishMethod=$(_WebImportMethod);publishUrl=$(_WebImportStageDir);PackageLocation=$(_WebImportStageDir)%(_WebProjectReference.WebProjectName).zip;PackageAsSingleFile=true;$(_WebImportProperties)"
+            RemoveProperties="$(_GlobalPropertiesToRemoveFromProjectReferences);%(_WebProjectReference.GlobalPropertiesToRemove);DesignTimeBuild;BuildProjectReferences" />
+
+        <ItemGroup>
+            <__WebImportFile Include="$(_WebImportStageDir)**\*" />
+            <__WebImportFile Update="@(__WebImportFile)">
+                <DestinationRelativePath>%(__WebImportFile.RecursiveDir)%(__WebImportFile.Filename)%(__WebImportFile.Extension)</DestinationRelativePath>
+            </__WebImportFile>
+        </ItemGroup>
+
+        <ItemGroup>
+            <_WebImportFile Include="@(__WebImportFile)">
+                <WebTargetPath>$(_WebImportTargetPath)</WebTargetPath>
+            </_WebImportFile>
+            <__WebImportFile Remove="@(__WebImportFile)" />
+        </ItemGroup>
+    </Target>
+
+    <PropertyGroup>
+        <CollectWebProjectReferenceItemsDependsOn>
+            $(CollectWebProjectReferenceItemsDependsOn);
+            AssignWebProjectConfiguration;
+            GetWebProjectReferences;
+            BuildWebProjectReferences;
+        </CollectWebProjectReferenceItemsDependsOn>
+    </PropertyGroup>
+
+    <Target
+        Name="CollectWebProjectReferenceItems"
+        BeforeTargets="GetCopyToOutputDirectoryItems"
+        DependsOnTargets="$(CollectWebProjectReferenceItemsDependsOn)"
+        Condition=" '$(DesignTimeBuild)' != 'true' And '@(WebProjectReference)' != '' ">
+        <ItemGroup>
+            <ContentWithTargetPath Include="@(_WebImportFile)">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+                <TargetPath>%(_WebImportFile.WebTargetPath)%(_WebImportFile.DestinationRelativePath)</TargetPath>
+            </ContentWithTargetPath>
+        </ItemGroup>
+    </Target>
+
+</Project>

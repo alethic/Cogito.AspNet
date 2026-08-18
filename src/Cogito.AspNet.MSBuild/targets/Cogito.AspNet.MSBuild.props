@@ -1,0 +1,11 @@
+<Project>
+    <PropertyGroup>
+        <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <UsingCogitoAspNetMSBuild>true</UsingCogitoAspNetMSBuild>
+        <CopyGeneratedBindingRedirectsToWebConfig Condition=" '$(CopyGeneratedBindingRedirectsToWebConfig)' == '' ">true</CopyGeneratedBindingRedirectsToWebConfig>
+    </PropertyGroup>
+
+</Project>

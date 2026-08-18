@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.Build.NoTargets">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+        <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <WebProjectReference Include="..\Sample.Web\Sample.Web.csproj">
+            <WebTargetPath>web\</WebTargetPath>
+        </WebProjectReference>
+        <WebProjectReference Include="..\Sample.Web\Sample.Web.csproj">
+            <WebTargetPath>zip\</WebTargetPath>
+            <WebPublishMethod>Package</WebPublishMethod>
+        </WebProjectReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Cogito.AspNet.MSBuild" Version="$(PackageVersion)">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

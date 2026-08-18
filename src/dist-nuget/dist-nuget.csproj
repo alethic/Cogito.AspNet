@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.Build.NoTargets">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Cogito.AspNet.MSBuild\Cogito.AspNet.MSBuild.csproj">
+            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+            <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+        </ProjectReference>
+    </ItemGroup>
+
+    <!-- Packs the package project directly into the publish directory. -->
+    <Target Name="CollectPackages" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
+        <MSBuild
+            Projects="..\Cogito.AspNet.MSBuild\Cogito.AspNet.MSBuild.csproj"
+            Targets="Pack"
+            BuildInParallel="$(BuildInParallel)"
+            Properties="Configuration=$(Configuration);PackageOutputPath=$([MSBuild]::EnsureTrailingSlash('$([System.IO.Path]::GetFullPath('$(PublishDir)'))'))" />
+    </Target>
+
+</Project>

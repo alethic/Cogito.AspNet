@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net8.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Buildalyzer" Version="6.0.4" />
+        <PackageReference Include="FluentAssertions" Version="6.12.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+        <PackageReference Include="MSTest.TestAdapter" Version="3.2.2" />
+        <PackageReference Include="MSTest.TestFramework" Version="3.2.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Project\**\*" />
+        <None Include="Project\**\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' != '' ">
+        <PackageProjectReference Include="..\Cogito.AspNet.MSBuild\Cogito.AspNet.MSBuild.csproj" PackageTargetPath="nuget" />
+    </ItemGroup>
+
+    <!-- Generate a file the tests can use to retrieve various MSBuild properties. -->
+    <Target Name="GeneratePropertiesFile" BeforeTargets="GetCopyToOutputDirectoryItems">
+        <ItemGroup>
+            <ProjectProperties Include="PackageVersion=$(PackageVersion)" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(IntermediateOutputPath)$(MSBuildProjectName).properties" Lines="@(ProjectProperties)" Overwrite="true" />
+        <ItemGroup>
+            <ContentWithTargetPath Include="$(IntermediateOutputPath)$(MSBuildProjectName).properties">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <TargetPath>$(MSBuildProjectName).properties</TargetPath>
+            </ContentWithTargetPath>
+        </ItemGroup>
+    </Target>
+
+</Project>
