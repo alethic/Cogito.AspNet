@@ -17,4 +17,5 @@
     <Project Path="src/Cogito.AspNet.MSBuild/Cogito.AspNet.MSBuild.csproj" />
     <Project Path="src/Cogito.AspNet.MSBuild.Tasks/Cogito.AspNet.MSBuild.Tasks.csproj" />
     <Project Path="src/Cogito.AspNet.MSBuild.Tasks.Test/Cogito.AspNet.MSBuild.Tasks.Test.csproj" />
+    <Project Path="src/Cogito.AspNet.MSBuild.Tests/Cogito.AspNet.MSBuild.Tests.csproj" />
 </Solution>

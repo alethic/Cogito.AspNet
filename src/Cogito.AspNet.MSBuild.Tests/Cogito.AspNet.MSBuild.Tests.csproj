@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net8.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Buildalyzer" Version="6.0.4" />
+        <PackageReference Include="FluentAssertions" Version="6.12.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+        <PackageReference Include="MSTest.TestAdapter" Version="3.2.2" />
+        <PackageReference Include="MSTest.TestFramework" Version="3.2.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Project\**\*" />
+        <None Include="Project\**\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <!-- Stages the package under test into the output as a local feed. -->
+    <Target Name="StagePackages" BeforeTargets="GetCopyToOutputDirectoryItems">
+        <PropertyGroup>
+            <_NuGetStageDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)nuget'))\</_NuGetStageDir>
+        </PropertyGroup>
+        <MSBuild
+            Projects="..\Cogito.AspNet.MSBuild\Cogito.AspNet.MSBuild.csproj"
+            Targets="Pack"
+            Properties="Configuration=$(Configuration);PackageOutputPath=$(_NuGetStageDir)"
+            RemoveProperties="TargetFramework" />
+        <ItemGroup>
+            <_StagedPackage Include="$(_NuGetStageDir)*nupkg" />
+            <ContentWithTargetPath Include="@(_StagedPackage)" CopyToOutputDirectory="PreserveNewest" TargetPath="nuget\%(_StagedPackage.Filename)%(_StagedPackage.Extension)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- Generate a file the tests can use to retrieve various MSBuild properties. -->
+    <Target Name="GeneratePropertiesFile" BeforeTargets="GetCopyToOutputDirectoryItems">
+        <ItemGroup>
+            <ProjectProperties Include="PackageVersion=$(PackageVersion)" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(IntermediateOutputPath)$(MSBuildProjectName).properties" Lines="@(ProjectProperties)" Overwrite="true" />
+        <ItemGroup>
+            <ContentWithTargetPath Include="$(IntermediateOutputPath)$(MSBuildProjectName).properties">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <TargetPath>$(MSBuildProjectName).properties</TargetPath>
+            </ContentWithTargetPath>
+        </ItemGroup>
+    </Target>
+
+</Project>
