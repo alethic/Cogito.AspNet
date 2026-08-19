@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿using System.Linq;
+using System.Xml.Linq;
 
 using Microsoft.Build.Framework;
 
@@ -21,9 +22,17 @@ namespace Cogito.AspNet.MSBuild
 
         public override bool Execute()
         {
-            var file = XDocument.Load(File.ItemSpec);
-            file.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding")?.Remove();
-            file.Save(File.ItemSpec);
+            var original = System.IO.File.ReadAllText(File.ItemSpec);
+            var newline = ConfigXml.DetectNewline(original);
+
+            var file = XDocument.Load(File.ItemSpec, LoadOptions.PreserveWhitespace);
+
+            var items = file.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding") ?? Enumerable.Empty<XElement>();
+            foreach (var element in items.ToList())
+                ConfigXml.RemoveWithLeadingWhitespace(element);
+
+            file.Save(File.ItemSpec, SaveOptions.DisableFormatting);
+            ConfigXml.RestoreTrailingNewline(File.ItemSpec, original, newline);
 
             return true;
         }
