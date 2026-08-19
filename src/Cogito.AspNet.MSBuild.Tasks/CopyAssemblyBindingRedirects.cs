@@ -29,12 +29,16 @@ namespace Cogito.AspNet.MSBuild
 
         public override bool Execute()
         {
+            var original = System.IO.File.ReadAllText(TargetFile.ItemSpec);
+            var newline = ConfigXml.DetectNewline(original);
+
             var source = XDocument.Load(SourceFile.ItemSpec);
-            var target = XDocument.Load(TargetFile.ItemSpec);
+            var target = XDocument.Load(TargetFile.ItemSpec, LoadOptions.PreserveWhitespace);
 
             // load new assembly bindings
-            var items = source.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding") ?? Enumerable.Empty<XElement>();
-            items = items.OrderBy(i => (string)i.Elements(asmv1 + "dependentAssembly").Elements(asmv1 + "assemblyIdentity").Attributes("name").FirstOrDefault() ?? "");
+            var items = (source.Root.Element("runtime")?.Elements(asmv1 + "assemblyBinding") ?? Enumerable.Empty<XElement>())
+                .OrderBy(i => (string)i.Elements(asmv1 + "dependentAssembly").Elements(asmv1 + "assemblyIdentity").Attributes("name").FirstOrDefault() ?? "")
+                .ToList();
 
             // reorder attributes
             foreach (var element in items.DescendantsAndSelf())
@@ -62,16 +66,42 @@ namespace Cogito.AspNet.MSBuild
                 element.ReplaceAttributes(attr);
             }
 
+            var unit = ConfigXml.DetectIndentUnit(target.Root);
+
             // ensure output runtime element exists
-            if (target.Root.Element("runtime") == null)
-                target.Root.Add(new XElement("runtime"));
+            var runtime = target.Root.Element("runtime");
+            if (runtime == null)
+            {
+                runtime = new XElement("runtime");
+                if (target.Root.LastNode is XText tail && string.IsNullOrWhiteSpace(tail.Value))
+                    tail.AddBeforeSelf(new XText(newline + unit), runtime);
+                else
+                    target.Root.Add(new XText(newline + unit), runtime, new XText(newline));
+            }
 
-            // remove existing binding elements
-            target.Root.Element("runtime").Elements(asmv1 + "assemblyBinding").Remove();
-            target.Root.Element("runtime").Add(items);
+            // remove existing binding elements along with their indentation
+            foreach (var element in runtime.Elements(asmv1 + "assemblyBinding").ToList())
+                ConfigXml.RemoveWithLeadingWhitespace(element);
 
-            // save new file
-            target.Save(TargetFile.ItemSpec);
+            // insert the new bindings, indented to match the document
+            var indent = ConfigXml.IndentOf(runtime) + unit;
+            foreach (var item in items)
+                ConfigXml.Indent(item, indent, unit, newline);
+            if (runtime.LastNode is XText close && string.IsNullOrWhiteSpace(close.Value))
+            {
+                foreach (var item in items)
+                    close.AddBeforeSelf(new XText(newline + indent), item);
+            }
+            else if (items.Count > 0)
+            {
+                foreach (var item in items)
+                    runtime.Add(new XText(newline + indent), item);
+                runtime.Add(new XText(newline + ConfigXml.IndentOf(runtime)));
+            }
+
+            // save new file, leaving the untouched content formatted as it was
+            target.Save(TargetFile.ItemSpec, SaveOptions.DisableFormatting);
+            ConfigXml.RestoreTrailingNewline(TargetFile.ItemSpec, original, newline);
 
             return true;
         }

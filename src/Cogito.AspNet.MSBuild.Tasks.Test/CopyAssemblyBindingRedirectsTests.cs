@@ -111,6 +111,52 @@ namespace Cogito.AspNet.MSBuild.Tasks.Test
         }
 
         [TestMethod]
+        public void ShouldPreserveTrailingNewline()
+        {
+            var target = CopyToTemp("Target.config");
+
+            var t = new CopyAssemblyBindingRedirects();
+            t.SourceFile = new TaskItem(GetSampleFile("Source.config"));
+            t.TargetFile = new TaskItem(target);
+            t.Execute().Should().BeTrue();
+
+            File.ReadAllText(target).Should().EndWith("\n");
+        }
+
+        [TestMethod]
+        public void ShouldPreserveFormattingOfUnrelatedContent()
+        {
+            var target = CopyToTemp("Target.config");
+
+            var t = new CopyAssemblyBindingRedirects();
+            t.SourceFile = new TaskItem(GetSampleFile("Source.config"));
+            t.TargetFile = new TaskItem(target);
+            t.Execute().Should().BeTrue();
+
+            // content outside the runtime element keeps its exact formatting
+            var text = File.ReadAllText(target).Replace("\r\n", "\n");
+            text.Should().Contain("  <appSettings>\n    <add key=\"Keep\" value=\"true\" />\n  </appSettings>");
+            text.Should().Contain("  <system.web>\n    <compilation debug=\"false\" />\n  </system.web>");
+        }
+
+        [TestMethod]
+        public void ShouldIndentInsertedRedirects()
+        {
+            var target = CopyToTemp("Target.config");
+
+            var t = new CopyAssemblyBindingRedirects();
+            t.SourceFile = new TaskItem(GetSampleFile("Source.config"));
+            t.TargetFile = new TaskItem(target);
+            t.Execute().Should().BeTrue();
+
+            // inserted bindings follow the document's two space indentation
+            var text = File.ReadAllText(target).Replace("\r\n", "\n");
+            text.Should().Contain("\n    <assemblyBinding");
+            text.Should().Contain("\n      <dependentAssembly>");
+            text.Should().Contain("\n        <assemblyIdentity");
+        }
+
+        [TestMethod]
         public void ShouldClearRedirectsWhenSourceHasNone()
         {
             var source = Path.GetTempFileName();
