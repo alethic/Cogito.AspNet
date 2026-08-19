@@ -1,17 +1,24 @@
 name: Cogito.AspNet
 
 on:
+  workflow_dispatch:
   push:
     branches:
     - master
   pull_request:
     branches:
     - master
+  release:
+    types:
+    - created
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: read
     steps:
     - name: Checkout Source
       uses: actions/checkout@v4
@@ -88,7 +95,7 @@ jobs:
         path: dist/tests.tar.gz
   release:
     name: Release
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name != 'pull_request'
     needs:
     - build
     runs-on: ubuntu-22.04
@@ -116,20 +123,24 @@ jobs:
         name: nuget
         path: dist/nuget
     - name: Create Release
-      uses: ncipollo/release-action@v1.11.2
+      if: github.ref_type == 'tag'
+      uses: ncipollo/release-action@v1.14.0
       with:
-        tag: ${{ steps.GitVersion.outputs.semVer }}
+        tag: ${{ github.ref_name }}
+        allowUpdates: true
+        omitBodyDuringUpdate: true
         artifacts: dist/nuget/*.nupkg,dist/nuget/*.snupkg
         draft: false
-        generateReleaseNotes: true
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Push NuGet (GitHub)
+      if: github.event_name != 'pull_request'
       shell: pwsh
-      run: dotnet nuget push dist/nuget/*.nupkg --source $env:GITHUB_REPOS --api-key $env:GITHUB_TOKEN --skip-duplicate
+      run: dotnet nuget push dist/nuget/*.nupkg --source $env:GITHUB_REPOS --api-key $env:GITHUB_TOKEN --skip-duplicate --no-symbols
       env:
         GITHUB_REPOS: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Push NuGet
+      if: github.ref_type == 'tag'
       shell: pwsh
       run: dotnet nuget push dist/nuget/*.nupkg --source $env:NUGET_REPOS --api-key $env:NUGET_TOKEN --skip-duplicate
       env:
