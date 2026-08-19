@@ -20,18 +20,41 @@
             </ItemGroup>
 
         The referenced project is published through the Web Publishing Pipeline (its
-        WebPublish target) into a staging directory, and the staged output is imported.
+        WebPublish target) to the referenced project's own default output location, which is
+        queried back (GetWebPublishPath) and imported — the same query-don't-dictate shape as
+        PublishProjectReference. By default NOTHING is added to the referenced project's global
+        properties, so the import resolves to the very same project instance the rest of the
+        build (e.g. the solution) uses: MSBuild's scheduler serializes all work on one instance
+        (no concurrent builds of the same project racing over shared bin/obj), the publish runs
+        once, and repeated imports are satisfied from the target result cache — with the
+        queried path still answering and the output still on disk to collect. For the same
+        reason nothing on the importing side may clean or redirect that output.
+
+        The referenced project declares how it publishes by setting WebPublishMethod as an
+        ordinary project property (it selects the Web Publishing Pipeline's Deploy import at
+        evaluation time, so it cannot be set in a target):
+
+            <PropertyGroup>
+                <WebPublishMethod>Package</WebPublishMethod>
+            </PropertyGroup>
+
+        Supported for import: FileSystem (the published site is imported as a directory tree)
+        and Package (the deployment package and its sidecar files are imported). A Visual
+        Studio publish profile still overrides the property, so interactive publishing is
+        unaffected.
+
+        The referenced project must itself reference this package (GetWebPublishPath has to be
+        defined in its scope); an unknown-target error from the import dispatch means it does
+        not.
 
         WebTargetPath: relative directory under the containing project's output where the
         imported output is placed. Defaults to the referenced project's name.
 
-        WebPublishMethod: the Web Publishing Pipeline publish method to run.
-            FileSystem (default): the published site is imported as a directory tree.
-            Package: the deployment package (PackageAsSingleFile) and its sidecar files
-                are imported.
-
         WebProperties: additional semicolon-separated MSBuild properties passed to the
-        referenced project's publish.
+        referenced project's publish. These enter the referenced project's global property
+        identity, splitting it into a second instance — which duplicates work and, under
+        parallel builds, races the plain instance over the same bin/obj. Leave it unset
+        unless the split is genuinely intended.
 
     -->
 
@@ -86,28 +109,49 @@
         Condition=" '$(DesignTimeBuild)' != 'true' And '@(_WebProjectReference)' != '' ">
         <PropertyGroup>
             <_WebImportTargetPath>%(_WebProjectReference.WebTargetPath)</_WebImportTargetPath>
-            <_WebImportMethod>%(_WebProjectReference.WebPublishMethod)</_WebImportMethod>
-            <_WebImportMethod Condition=" '$(_WebImportMethod)' == '' ">FileSystem</_WebImportMethod>
             <_WebImportProperties>%(_WebProjectReference.WebProperties)</_WebImportProperties>
-            <_WebImportStageDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)webpublish\%(_WebProjectReference.WebProjectName)\$(_WebImportMethod)'))\</_WebImportStageDir>
         </PropertyGroup>
-        <Error
-            Condition=" '$(_WebImportMethod)' != 'FileSystem' And '$(_WebImportMethod)' != 'Package' "
-            Text="Unknown WebPublishMethod '$(_WebImportMethod)' on WebProjectReference '%(_WebProjectReference.Identity)'. Supported values: FileSystem, Package." />
-        <Message Importance="Normal" Text="Importing web project %(_WebProjectReference.WebProjectName) ($(_WebImportMethod)) to $(_WebImportTargetPath)" />
 
-        <!-- Publish through the Web Publishing Pipeline into the staging directory. The
-             method decides which of the staging properties applies. -->
-        <RemoveDir Directories="$(_WebImportStageDir)" />
+        <!-- Publish through the Web Publishing Pipeline to the referenced project's own default
+             output location, and query that location (and the method it used) back. Nothing
+             caller-specific enters the referenced project's global properties, so every importer
+             resolves to the same instance and repeated imports are answered from the target
+             result cache — with the path still returned and the previously produced output still
+             on disk. Nothing on this side may clean or redirect that output. -->
+        <ItemGroup>
+            <_WebImportResult Remove="@(_WebImportResult)" />
+        </ItemGroup>
         <MSBuild
             Projects="@(_WebProjectReference)"
-            Targets="WebPublish"
+            Targets="WebPublish;GetWebPublishPath"
             BuildInParallel="$(BuildInParallel)"
-            Properties="%(_WebProjectReference.SetConfiguration);%(_WebProjectReference.SetPlatform);%(_WebProjectReference.SetTargetFramework);WebPublishMethod=$(_WebImportMethod);publishUrl=$(_WebImportStageDir);PackageLocation=$(_WebImportStageDir)%(_WebProjectReference.WebProjectName).zip;PackageAsSingleFile=true;$(_WebImportProperties)"
-            RemoveProperties="$(_GlobalPropertiesToRemoveFromProjectReferences);%(_WebProjectReference.GlobalPropertiesToRemove);DesignTimeBuild;BuildProjectReferences" />
+            Properties="%(_WebProjectReference.SetConfiguration);%(_WebProjectReference.SetPlatform);%(_WebProjectReference.SetTargetFramework);$(_WebImportProperties)"
+            RemoveProperties="$(_GlobalPropertiesToRemoveFromProjectReferences);%(_WebProjectReference.GlobalPropertiesToRemove);DesignTimeBuild;BuildProjectReferences">
+            <Output TaskParameter="TargetOutputs" ItemName="_WebImportResult" />
+        </MSBuild>
+
+        <PropertyGroup>
+            <_WebImportResolvedPath>@(_WebImportResult)</_WebImportResolvedPath>
+            <_WebImportResolvedMethod>@(_WebImportResult->'%(WebPublishMethod)')</_WebImportResolvedMethod>
+        </PropertyGroup>
+        <Error
+            Condition=" '$(_WebImportResolvedMethod)' != 'FileSystem' And '$(_WebImportResolvedMethod)' != 'Package' "
+            Text="WebProjectReference '%(_WebProjectReference.Identity)' published with WebPublishMethod '$(_WebImportResolvedMethod)', which cannot be imported. Supported values: FileSystem, Package — set one as a project property in the referenced project." />
+        <Message Importance="Normal" Text="Importing web project %(_WebProjectReference.WebProjectName) ($(_WebImportResolvedMethod)) to $(_WebImportTargetPath)" />
+
+        <PropertyGroup>
+            <!-- Package returns the package file; the import is its sidecar family (X.zip,
+                 X.deploy.cmd, X.SetParameters.xml, ...), deliberately non-recursive so the
+                 intermediate PackageTmp and Log directories beside it are not swept up.
+                 FileSystem returns the publish directory; the import is its whole tree. -->
+            <_WebImportPublishDir Condition=" '$(_WebImportResolvedMethod)' == 'FileSystem' ">$([MSBuild]::EnsureTrailingSlash('$(_WebImportResolvedPath)'))</_WebImportPublishDir>
+            <_WebImportPublishDir Condition=" '$(_WebImportResolvedMethod)' == 'Package' ">$([System.IO.Path]::GetDirectoryName('$(_WebImportResolvedPath)'))\</_WebImportPublishDir>
+            <_WebImportPublishName Condition=" '$(_WebImportResolvedMethod)' == 'Package' ">$([System.IO.Path]::GetFileNameWithoutExtension('$(_WebImportResolvedPath)'))</_WebImportPublishName>
+        </PropertyGroup>
 
         <ItemGroup>
-            <__WebImportFile Include="$(_WebImportStageDir)**\*" />
+            <__WebImportFile Condition=" '$(_WebImportResolvedMethod)' == 'Package' " Include="$(_WebImportPublishDir)$(_WebImportPublishName).*" />
+            <__WebImportFile Condition=" '$(_WebImportResolvedMethod)' == 'FileSystem' " Include="$(_WebImportPublishDir)**\*" />
             <__WebImportFile Update="@(__WebImportFile)">
                 <DestinationRelativePath>%(__WebImportFile.RecursiveDir)%(__WebImportFile.Filename)%(__WebImportFile.Extension)</DestinationRelativePath>
             </__WebImportFile>
@@ -118,6 +162,41 @@
                 <WebTargetPath>$(_WebImportTargetPath)</WebTargetPath>
             </_WebImportFile>
             <__WebImportFile Remove="@(__WebImportFile)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- Runs in the REFERENCED project. The Web Publishing Pipeline has no default publishUrl
+         for the FileSystem method, so default it under the referenced project's own
+         intermediate output — a location that is identical for every importer. -->
+    <Target Name="_InitWebPublishPathDefaults" BeforeTargets="WebPublish" Condition=" '$(WebPublishMethod)' == 'FileSystem' ">
+        <PropertyGroup>
+            <publishUrl Condition=" '$(publishUrl)' == '' ">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)webpublish'))\</publishUrl>
+        </PropertyGroup>
+    </Target>
+
+    <PropertyGroup>
+        <GetWebPublishPathDependsOn>
+            $(GetWebPublishPathDependsOn);
+            WebPublish;
+        </GetWebPublishPathDependsOn>
+    </PropertyGroup>
+
+    <!-- Runs in the REFERENCED project: returns where the Web Publishing Pipeline put this
+         project's publish output — the package file for the Package method, the publish
+         directory for FileSystem — with the method carried as metadata so the importer can
+         collect accordingly without dictating it. The WebProjectReference analogue of
+         GetPublishProjectPath: because it is a Returns target, it answers from the target
+         result cache even when WebPublish itself was satisfied without re-executing. -->
+    <Target Name="GetWebPublishPath" DependsOnTargets="$(GetWebPublishPathDependsOn)" Returns="@(GetWebPublishPath)">
+        <PropertyGroup>
+            <_GetWebPublishPath Condition=" '$(WebPublishMethod)' == 'Package' ">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(PackageFileName)'))))</_GetWebPublishPath>
+            <_GetWebPublishPath Condition=" '$(WebPublishMethod)' == 'FileSystem' ">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(publishUrl)'))))</_GetWebPublishPath>
+        </PropertyGroup>
+        <ItemGroup>
+            <GetWebPublishPath Remove="@(GetWebPublishPath)" />
+            <GetWebPublishPath Include="$(_GetWebPublishPath)" Condition=" '$(_GetWebPublishPath)' != '' ">
+                <WebPublishMethod>$(WebPublishMethod)</WebPublishMethod>
+            </GetWebPublishPath>
         </ItemGroup>
     </Target>
 
