@@ -15,40 +15,37 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: read
     steps:
     - name: Checkout Source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
-    - name: Move Temporary Directory
-      shell: pwsh
-      run: Add-Content $env:GITHUB_ENV "`nTMP=${{ runner.temp }}`nTEMP=${{ runner.temp }}`nTMPDIR=${{ runner.temp }}"
-    - name: Setup .NET
-      shell: pwsh
-      run: Add-Content $env:GITHUB_ENV "`nDOTNET_INSTALL_DIR=${{ runner.temp }}/dotnet"
-    - name: Setup .NET 9.0
-      uses: actions/setup-dotnet@v4
+    - name: Setup .NET 8.0
+      uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: 9.0.x
+        dotnet-version: 8.0.x
+    - name: Setup .NET 10.0
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4
       with:
         versionSpec: 6.x
     - name: Execute GitVersion
       uses: gittools/actions/gitversion/execute@v4
-    - name: Move NuGet Directory
-      shell: pwsh
-      run: Add-Content $env:GITHUB_ENV "`nNUGET_PACKAGES=${{ runner.temp }}/nuget/packages"
-    - name: Cache NuGet
-      uses: actions/cache@v4
       with:
-        path: ${{ runner.temp }}/nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.msbuildproj') }}-1
-        restore-keys: ${{ runner.os }}-nuget-
+        useConfigFile: true
+    - name: Add NuGet Source (GitHub)
+      shell: pwsh
+      run: dotnet nuget add source $env:GITHUB_REPOS --name ${{ github.repository_owner }} --username USERNAME --password $env:GITHUB_TOKEN --store-password-in-clear-text
+      env:
+        GITHUB_REPOS: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: NuGet Restore
       run: dotnet restore Cogito.AspNet.slnx
     - name: Build
@@ -65,47 +62,41 @@ jobs:
           /p:RepositoryUrl="${env:GITHUB_SERVER_URL}/${env:GITHUB_REPOSITORY}.git" `
           /p:PackageProjectUrl="${env:GITHUB_SERVER_URL}/${env:GITHUB_REPOSITORY}" `
           /p:BuildInParallel=true `
-          /p:CreateHardLinksForAdditionalFilesIfPossible=true `
-          /p:CreateHardLinksForCopyAdditionalFilesIfPossible=true `
-          /p:CreateHardLinksForCopyFilesToOutputDirectoryIfPossible=true `
-          /p:CreateHardLinksForCopyLocalIfPossible=true `
-          /p:CreateHardLinksForPublishFilesIfPossible=true `
           /p:ContinuousIntegrationBuild=true `
           Cogito.AspNet.dist.msbuildproj
     - name: Upload MSBuild Log
       if: ${{ always() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: msbuild.binlog
         path: msbuild.binlog
     - name: Upload NuGet Packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: nuget
         path: dist/nuget
-    - name: Package Tests
-      run: tar czvf tests.tar.gz tests
-      working-directory: dist
-    - name: Upload Tests
-      uses: actions/upload-artifact@v4
-      with:
-        name: tests
-        path: dist/tests.tar.gz
   release:
     name: Release
     if: github.event_name != 'pull_request'
     needs:
     - build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
     steps:
     - name: Checkout Source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
-    - name: Setup .NET 9.0
-      uses: actions/setup-dotnet@v4
+    - name: Setup .NET 8.0
+      uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: 9.0.x
+        dotnet-version: 8.0.x
+    - name: Setup .NET 10.0
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4
       with:
@@ -113,25 +104,27 @@ jobs:
     - name: Execute GitVersion
       id: GitVersion
       uses: gittools/actions/gitversion/execute@v4
+      with:
+        useConfigFile: true
     - name: Download NuGet Packages
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: nuget
         path: dist/nuget
     - name: Create Release
       if: github.ref_type == 'tag'
-      uses: ncipollo/release-action@v1.14.0
+      uses: ncipollo/release-action@v1
       with:
-        tag: ${{ github.ref_name }}
+        tag: ${{ steps.GitVersion.outputs.semVer }}
         allowUpdates: true
         omitBodyDuringUpdate: true
+        replacesArtifacts: true
         artifacts: dist/nuget/*.nupkg,dist/nuget/*.snupkg
-        draft: false
+        makeLatest: true
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Push NuGet (GitHub)
-      if: github.event_name != 'pull_request'
       shell: pwsh
-      run: dotnet nuget push dist/nuget/*.nupkg --source $env:GITHUB_REPOS --api-key $env:GITHUB_TOKEN --skip-duplicate --no-symbols
+      run: dotnet nuget push dist/nuget/*.nupkg --source $env:GITHUB_REPOS --api-key $env:GITHUB_TOKEN --skip-duplicate
       env:
         GITHUB_REPOS: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
