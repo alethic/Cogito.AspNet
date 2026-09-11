@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.Build.NoTargets">
+﻿<Project Sdk="Microsoft.Build.NoTargets">
 
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
@@ -11,9 +11,8 @@
         <WebProjectReference Include="..\Sample.Web\Sample.Web.csproj">
             <WebTargetPath>web\</WebTargetPath>
         </WebProjectReference>
-        <WebProjectReference Include="..\Sample.Web\Sample.Web.csproj">
+        <WebProjectReference Include="..\Sample.Web.Package\Sample.Web.Package.csproj">
             <WebTargetPath>zip\</WebTargetPath>
-            <WebPublishMethod>Package</WebPublishMethod>
         </WebProjectReference>
     </ItemGroup>
 
