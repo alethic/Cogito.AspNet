@@ -6,6 +6,6 @@ patch-version-bump-message: '\+semver:\s?(patch)'
 tag-prefix: '[vV]?'
 branches:
   main:
-    regex: ^master$
+    regex: ^main$
     label: pre
     increment: Patch
