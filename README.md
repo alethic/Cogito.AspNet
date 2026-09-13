@@ -1,5 +1,7 @@
 # Cogito.AspNet
 
+[![Build](https://github.com/alethic/Cogito.AspNet/actions/workflows/Cogito.AspNet.yml/badge.svg)](https://github.com/alethic/Cogito.AspNet/actions/workflows/Cogito.AspNet.yml)
+
 MSBuild extensions for ASP.NET Web Application Projects.
 
 ## Cogito.AspNet.MSBuild
