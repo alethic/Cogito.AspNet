@@ -50,3 +50,9 @@ and publish directories.
   deployment package (`PackageAsSingleFile`) and its sidecar files.
 - `WebProperties` passes additional semicolon-separated MSBuild properties to the
   referenced project's publish.
+
+## Packages
+
+| Package | Version |
+| --- | --- |
+| [Cogito.AspNet.MSBuild](https://www.nuget.org/packages/Cogito.AspNet.MSBuild) | [![NuGet](https://img.shields.io/nuget/v/Cogito.AspNet.MSBuild.svg)](https://www.nuget.org/packages/Cogito.AspNet.MSBuild) |
