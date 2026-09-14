@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -128,6 +128,30 @@ namespace Cogito.AspNet.MSBuild.Tests
                 Assert.Inconclusive("Web Application Projects require Windows.");
 
             var manager = new AnalyzerManager();
+
+            // WebProjectReference is deliberately not a ProjectReference, so the referenced project is
+            // not in the host's restore graph. A solution build restores both; this does the same, so
+            // the package's targets land in Sample.Web's scope and GetWebPublishPath is defined there.
+            var restoreOptions = new EnvironmentOptions();
+            restoreOptions.WorkingDirectory = TestRoot;
+            restoreOptions.Preference = EnvironmentPreference.Framework;
+            restoreOptions.DesignTime = false;
+            restoreOptions.TargetsToBuild.Clear();
+            restoreOptions.TargetsToBuild.Add("Restore");
+            restoreOptions.Arguments.Add("/v:d");
+
+            foreach (var web in new[] { "Sample.Web", "Sample.Web.Package" })
+            {
+                var webAnalyzer = manager.GetProject(Path.Combine(TestRoot, web, web + ".csproj"));
+                webAnalyzer.AddBuildLogger(new TargetLogger(TestContext));
+                webAnalyzer.SetGlobalProperty("ImportDirectoryBuildProps", "false");
+                webAnalyzer.SetGlobalProperty("ImportDirectoryBuildTargets", "false");
+                webAnalyzer.SetGlobalProperty("PackageVersion", Properties["PackageVersion"]);
+                webAnalyzer.SetGlobalProperty("RestorePackagesPath", NuGetPackageRoot + Path.DirectorySeparatorChar);
+                webAnalyzer.SetGlobalProperty("Configuration", "Release");
+                webAnalyzer.Build(restoreOptions).OverallSuccess.Should().BeTrue();
+            }
+
             var analyzer = manager.GetProject(Path.Combine(TestRoot, "Sample.Host", "Sample.Host.csproj"));
             analyzer.AddBuildLogger(new TargetLogger(TestContext));
             analyzer.AddBinaryLogger(Path.Combine(WorkRoot, "msbuild.binlog"));
@@ -165,8 +189,8 @@ namespace Cogito.AspNet.MSBuild.Tests
                 File.Exists(Path.Combine(outDir, "web", "bin", "Sample.Web.dll")).Should().BeTrue();
 
                 // Package method: the deployment package and its sidecar files
-                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.zip")).Should().BeTrue();
-                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.SetParameters.xml")).Should().BeTrue();
+                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.Package.zip")).Should().BeTrue();
+                File.Exists(Path.Combine(outDir, "zip", "Sample.Web.Package.SetParameters.xml")).Should().BeTrue();
             }
         }
 

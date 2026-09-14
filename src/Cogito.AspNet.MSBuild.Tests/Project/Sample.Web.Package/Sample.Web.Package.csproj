@@ -4,14 +4,14 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{9E5A4A9C-6A7C-4C39-9E2B-9D0B3C1B2E01}</ProjectGuid>
+    <ProjectGuid>{7B2D1E44-3C5A-4F18-9A6E-2D4C8B0F1A73}</ProjectGuid>
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
-    <RootNamespace>Sample.Web</RootNamespace>
-    <AssemblyName>Sample.Web</AssemblyName>
+    <RootNamespace>Sample.Web.Package</RootNamespace>
+    <AssemblyName>Sample.Web.Package</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <WebPublishMethod>FileSystem</WebPublishMethod>
+    <WebPublishMethod>Package</WebPublishMethod>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
